@@ -1,0 +1,720 @@
+{
+  "info": {
+    "_postman_id": "minimarket-api-collection",
+    "name": "Minimarket API",
+    "description": "Coleccion Postman del backend Minimarket (Spring Boot 3.4 + Spring Security + sesion HTTP).\n\n## Como importar\n1. Postman → **Import** → selecciona este archivo JSON\n2. Levanta la app: `mvnw spring-boot:run`\n3. Ejecuta un **Login** (carpeta 00) antes de probar `/api/**`\n4. Postman guarda la cookie `JSESSIONID` automaticamente en localhost\n\n## Usuarios de prueba (seed H2)\n| Usuario | Password | Rol |\n|---------|----------|-----|\n| cliente1 | cliente123 | CLIENTE |\n| empleado1 | empleado123 | EMPLEADO |\n| gerente1 | gerente123 | GERENTE |\n\n## Datos iniciales (IDs tipicos)\n- Categorias: 1=Bebidas, 2=Snacks\n- Productos: 1=Agua 500ml, 2=Papas fritas, 3=Jugo natural\n- Usuario cliente1: id=1\n\n## Inventario de endpoints\n\n### Publico / Auth\n| Metodo | Ruta | Acceso |\n|--------|------|--------|\n| GET | /public/hola | Publico |\n| GET | /login | Publico (HTML form) |\n| POST | /login | Publico (form-urlencoded) |\n| POST | /logout | Autenticado |\n\n### Productos `/api/productos`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/productos | CLIENTE, EMPLEADO, GERENTE |\n| GET | /api/productos/{id} | CLIENTE, EMPLEADO, GERENTE |\n| POST | /api/productos | EMPLEADO, GERENTE |\n| PUT | /api/productos/{id} | EMPLEADO, GERENTE |\n| DELETE | /api/productos/{id} | EMPLEADO, GERENTE |\n\n### Categorias `/api/categorias`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/categorias | CLIENTE, EMPLEADO, GERENTE |\n| GET | /api/categorias/{id} | CLIENTE, EMPLEADO, GERENTE |\n| POST | /api/categorias | EMPLEADO, GERENTE |\n| PUT | /api/categorias/{id} | EMPLEADO, GERENTE |\n| DELETE | /api/categorias/{id} | EMPLEADO, GERENTE |\n\n### Carrito `/api/carrito`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/carrito | CLIENTE*, EMPLEADO, GERENTE |\n| GET | /api/carrito/{id} | CLIENTE*, EMPLEADO, GERENTE |\n| POST | /api/carrito | CLIENTE*, EMPLEADO, GERENTE |\n| PUT | /api/carrito/{id} | CLIENTE*, EMPLEADO, GERENTE |\n| DELETE | /api/carrito/{id} | CLIENTE*, EMPLEADO, GERENTE |\n\n*CLIENTE: solo sus propios items (IDOR)\n\n### Ventas `/api/ventas`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/ventas | CLIENTE*, EMPLEADO, GERENTE |\n| GET | /api/ventas/{id} | CLIENTE*, EMPLEADO, GERENTE |\n| POST | /api/ventas | CLIENTE*, EMPLEADO, GERENTE |\n\n### Inventario `/api/inventario`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/inventario | EMPLEADO, GERENTE |\n| GET | /api/inventario/{id} | EMPLEADO, GERENTE |\n| POST | /api/inventario | EMPLEADO, GERENTE |\n| PUT | /api/inventario/{id} | EMPLEADO, GERENTE |\n| DELETE | /api/inventario/{id} | EMPLEADO, GERENTE |\n\n### Detalle ventas `/api/detalle-ventas`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/detalle-ventas | EMPLEADO, GERENTE |\n| GET | /api/detalle-ventas/{id} | EMPLEADO, GERENTE |\n| POST | /api/detalle-ventas | EMPLEADO, GERENTE |\n| PUT | /api/detalle-ventas/{id} | EMPLEADO, GERENTE |\n| DELETE | /api/detalle-ventas/{id} | EMPLEADO, GERENTE |\n\n### Usuarios `/api/usuarios`\n| Metodo | Ruta | Roles |\n|--------|------|-------|\n| GET | /api/usuarios | GERENTE |\n| GET | /api/usuarios/{id} | GERENTE |\n| POST | /api/usuarios | GERENTE |\n| PUT | /api/usuarios/{id} | GERENTE |\n| DELETE | /api/usuarios/{id} | GERENTE |\n\n## Codigos HTTP\n- **200/201**: OK\n- **204**: Eliminado sin contenido\n- **302**: Login exitoso/fallido (POST /login)\n- **400**: Validacion fallida\n- **401**: Sin sesion en `/api/**`\n- **403**: Rol insuficiente o IDOR\n- **404**: Recurso no encontrado\n\n## Anti fuerza bruta\nMaximo **3** intentos fallidos de login por usuario. Al 4. intento la cuenta queda bloqueada hasta reiniciar la app.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "productoId", "value": "1", "type": "string" },
+    { "key": "categoriaId", "value": "1", "type": "string" },
+    { "key": "carritoId", "value": "1", "type": "string" },
+    { "key": "ventaId", "value": "1", "type": "string" },
+    { "key": "usuarioId", "value": "1", "type": "string" },
+    { "key": "inventarioId", "value": "1", "type": "string" },
+    { "key": "detalleVentaId", "value": "1", "type": "string" },
+    { "key": "csrfToken", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "00 - Autenticacion",
+      "description": "Login con **x-www-form-urlencoded** (NO JSON). Postman guarda cookie JSESSIONID.\n\n**CSRF:** Ejecuta primero **GET Login page** para guardar `csrfToken`; los POST /login y POST /logout incluyen `_csrf`.\n\n- POST /login exitoso: 302 redirect\n- POST /login fallido: 302 a /login?error\n- GET /api/** sin sesion: 401",
+      "item": [
+        {
+          "name": "Login - CLIENTE (cliente1)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "cliente1", "type": "text" },
+                { "key": "password", "value": "cliente123", "type": "text" },
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/login",
+            "description": "POST /login\n\nEsperado: 302 redirect + cookie JSESSIONID.\nRol: ROLE_CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "Login - EMPLEADO (empleado1)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "empleado1", "type": "text" },
+                { "key": "password", "value": "empleado123", "type": "text" },
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/login",
+            "description": "POST /login\n\nEsperado: 302 redirect + cookie JSESSIONID.\nRol: ROLE_EMPLEADO"
+          },
+          "response": []
+        },
+        {
+          "name": "Login - GERENTE (gerente1)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "gerente1", "type": "text" },
+                { "key": "password", "value": "gerente123", "type": "text" },
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/login",
+            "description": "POST /login\n\nEsperado: 302 redirect + cookie JSESSIONID.\nRol: ROLE_GERENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Credenciales invalidas",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "cliente1", "type": "text" },
+                { "key": "password", "value": "wrongpassword", "type": "text" },
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/login",
+            "description": "POST /login\n\nEsperado:\n- **Sin seguir redirects:** 302 Location: /login?error\n- **Siguiendo redirects (default Postman):** 200 HTML con mensaje de error\n\nEl 404 que veias antes era porque Postman seguia el redirect a /login?error y esa pagina no existia (ya corregido).\nLog consola: intento fallido 1/3, 2/3, 3/3."
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Bloqueo 3 intentos (anti fuerza bruta)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "username", "value": "cliente1", "type": "text" },
+                { "key": "password", "value": "wrongpassword", "type": "text" },
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/login",
+            "description": "POST /login\n\nEjecutar **4 veces seguidas** con password incorrecta.\nIntentos 1-3: 302 a /login?error.\nIntento 4: cuenta bloqueada (LockedException).\nDesbloquear: reiniciar la aplicacion."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "_csrf", "value": "{{csrfToken}}", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/logout",
+            "description": "POST /logout\n\nCierra sesion. Requiere cookie JSESSIONID activa.\nEsperado: 302 redirect a /public/hola"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Login page (HTML) — obtener CSRF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const html = pm.response.text();",
+                  "const m = html.match(/name=\"_csrf\" value=\"([^\"]+)\"/);",
+                  "if (m) { pm.collectionVariables.set('csrfToken', m[1]); }",
+                  "else { console.warn('No se encontro token CSRF en /login'); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/login",
+            "description": "GET /login\n\n**Ejecutar antes de cada POST /login o /logout.**\n\nGuarda `csrfToken` desde el campo oculto del formulario.\nEsperado: 200 HTML con formulario y token CSRF."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Publico",
+      "item": [
+        {
+          "name": "GET /public/hola",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/public/hola",
+            "description": "GET /public/hola\n\nAcceso: **Publico** (sin login).\nEsperado: 200 — texto `¡Hola Mundo!`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Productos",
+      "description": "Base: /api/productos\n\nGET: CLIENTE, EMPLEADO, GERENTE | POST/PUT/DELETE: EMPLEADO, GERENTE",
+      "item": [
+        {
+          "name": "GET Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos",
+            "description": "GET /api/productos\n\nEsperado: 200 autenticado | 401 sin sesion"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Producto por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}",
+            "description": "GET /api/productos/{id}\n\nEsperado: 200 | 404 si no existe"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear producto",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Galletas\",\n  \"precio\": 900,\n  \"stock\": 25,\n  \"categoria\": { \"id\": 2 }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/productos",
+            "description": "POST /api/productos\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 200 | 403 CLIENTE | 401 sin sesion | 400 validacion"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar producto",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Agua 500ml\",\n  \"precio\": 850,\n  \"stock\": 45,\n  \"categoria\": { \"id\": 1 }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/productos/{{productoId}}",
+            "description": "PUT /api/productos/{id}\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 200 | 404 | 403 CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar producto",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}",
+            "description": "DELETE /api/productos/{id}\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 204 | 404 | 403 CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Producto precio negativo (validacion 400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Invalido\",\n  \"precio\": -1,\n  \"stock\": 1,\n  \"categoria\": { \"id\": 1 }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/productos",
+            "description": "POST /api/productos\n\nPrueba de validacion @Valid.\nEsperado: 400 Bad Request (login como empleado1 o gerente1)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Categorias",
+      "description": "Base: /api/categorias\n\nGET: todos autenticados | POST/PUT/DELETE: EMPLEADO, GERENTE",
+      "item": [
+        {
+          "name": "GET Listar categorias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/categorias",
+            "description": "GET /api/categorias\n\nEsperado: 200 autenticado | 401 sin sesion"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Categoria por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/categorias/{{categoriaId}}",
+            "description": "GET /api/categorias/{id}\n\nEsperado: 200 | 404"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear categoria",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Lacteos\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/categorias",
+            "description": "POST /api/categorias\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 200 | 403 CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar categoria",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Bebidas\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/categorias/{{categoriaId}}",
+            "description": "PUT /api/categorias/{id}\n\nRoles: EMPLEADO, GERENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar categoria",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/categorias/{{categoriaId}}",
+            "description": "DELETE /api/categorias/{id}\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 204 | 404"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Carrito",
+      "description": "Base: /api/carrito\n\nCLIENTE: solo su carrito (IDOR). EMPLEADO/GERENTE: acceso total.",
+      "item": [
+        {
+          "name": "GET Listar carrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/carrito",
+            "description": "GET /api/carrito\n\nCLIENTE: solo sus items.\nEMPLEADO/GERENTE: todos los items."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Carrito por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/carrito/{{carritoId}}",
+            "description": "GET /api/carrito/{id}\n\nCLIENTE: 403 si el carrito es de otro usuario.\nEsperado: 200 | 403 | 404"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Agregar al carrito",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": { \"id\": 1 },\n  \"producto\": { \"id\": 3 },\n  \"cantidad\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/carrito",
+            "description": "POST /api/carrito\n\nCLIENTE: el usuario se fuerza al logueado (IDOR).\nBody: usuario, producto (por id), cantidad (min 1)."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar carrito",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": { \"id\": 1 },\n  \"producto\": { \"id\": 1 },\n  \"cantidad\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/carrito/{{carritoId}}",
+            "description": "PUT /api/carrito/{id}\n\nCLIENTE: 403 si no es su carrito."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar del carrito",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/carrito/{{carritoId}}",
+            "description": "DELETE /api/carrito/{id}\n\nEsperado: 204 | 403 | 404"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Ventas",
+      "description": "Base: /api/ventas\n\nSolo GET y POST. CLIENTE: solo sus ventas (IDOR).",
+      "item": [
+        {
+          "name": "GET Listar ventas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ventas",
+            "description": "GET /api/ventas\n\nCLIENTE: solo sus ventas.\nEMPLEADO/GERENTE: todas."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Venta por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/ventas/{{ventaId}}",
+            "description": "GET /api/ventas/{id}\n\nCLIENTE: 403 si venta de otro usuario.\nEsperado: 200 | 403 | 404"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear venta (simple)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": { \"id\": 1 },\n  \"fecha\": \"2026-05-24T12:00:00.000+00:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/ventas",
+            "description": "POST /api/ventas\n\nVenta sin detalles anidados."
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear venta con detalles",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": { \"id\": 1 },\n  \"fecha\": \"2026-05-24T12:00:00.000+00:00\",\n  \"detalles\": [\n    {\n      \"producto\": { \"id\": 2 },\n      \"cantidad\": 1,\n      \"precio\": 1200\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/ventas",
+            "description": "POST /api/ventas\n\nVenta con detalles anidados (como en DataInitializer).\nCLIENTE: usuario forzado al logueado."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Inventario",
+      "description": "Base: /api/inventario\n\nSolo EMPLEADO y GERENTE.",
+      "item": [
+        {
+          "name": "GET Listar inventario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/inventario",
+            "description": "GET /api/inventario\n\nRoles: EMPLEADO, GERENTE.\nEsperado: 200 | 403 CLIENTE | 401 sin sesion"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Inventario por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/inventario/{{inventarioId}}",
+            "description": "GET /api/inventario/{id}\n\nEsperado: 200 | 404 | 403 CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Registrar movimiento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"producto\": { \"id\": 1 },\n  \"cantidad\": 10,\n  \"tipoMovimiento\": \"Entrada\",\n  \"fechaMovimiento\": \"2026-05-24T12:00:00.000+00:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/inventario",
+            "description": "POST /api/inventario\n\nBody: producto, cantidad, tipoMovimiento (Entrada/Salida), fechaMovimiento."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar movimiento",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"producto\": { \"id\": 1 },\n  \"cantidad\": 15,\n  \"tipoMovimiento\": \"Entrada\",\n  \"fechaMovimiento\": \"2026-05-24T12:00:00.000+00:00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/inventario/{{inventarioId}}",
+            "description": "PUT /api/inventario/{id}"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar movimiento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/inventario/{{inventarioId}}",
+            "description": "DELETE /api/inventario/{id}\n\nEsperado: 204 | 404"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 - Detalle Ventas",
+      "description": "Base: /api/detalle-ventas\n\nSolo EMPLEADO y GERENTE.",
+      "item": [
+        {
+          "name": "GET Listar detalle ventas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/detalle-ventas",
+            "description": "GET /api/detalle-ventas\n\nRoles: EMPLEADO, GERENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Detalle venta por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/detalle-ventas/{{detalleVentaId}}",
+            "description": "GET /api/detalle-ventas/{id}\n\nEsperado: 200 | 404 | 403 CLIENTE"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear detalle venta",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venta\": { \"id\": 1 },\n  \"producto\": { \"id\": 2 },\n  \"cantidad\": 1,\n  \"precio\": 1200\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/detalle-ventas",
+            "description": "POST /api/detalle-ventas\n\nBody: venta, producto, cantidad, precio."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar detalle venta",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venta\": { \"id\": 1 },\n  \"producto\": { \"id\": 2 },\n  \"cantidad\": 2,\n  \"precio\": 1200\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/detalle-ventas/{{detalleVentaId}}",
+            "description": "PUT /api/detalle-ventas/{id}"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar detalle venta",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/detalle-ventas/{{detalleVentaId}}",
+            "description": "DELETE /api/detalle-ventas/{id}\n\nEsperado: 204 | 404"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 - Usuarios",
+      "description": "Base: /api/usuarios\n\nSolo GERENTE. Password no aparece en respuestas JSON.",
+      "item": [
+        {
+          "name": "GET Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios",
+            "description": "GET /api/usuarios\n\nRol: GERENTE.\nEsperado: 200 | 403 CLIENTE/EMPLEADO"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Usuario por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "GET /api/usuarios/{id}\n\nRol: GERENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "POST Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"cliente2\",\n  \"password\": \"cliente456\",\n  \"activo\": true,\n  \"roles\": [\n    { \"nombre\": \"ROLE_CLIENTE\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/usuarios",
+            "description": "POST /api/usuarios\n\nPassword se hashea con BCrypt al guardar.\nRoles validos: ROLE_CLIENTE, ROLE_EMPLEADO, ROLE_GERENTE."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Actualizar usuario",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"cliente1\",\n  \"activo\": true,\n  \"roles\": [\n    { \"nombre\": \"ROLE_CLIENTE\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "PUT /api/usuarios/{id}\n\nPassword opcional; si se omite se conserva la anterior."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios/{{usuarioId}}",
+            "description": "DELETE /api/usuarios/{id}\n\nEsperado: 204 | 404"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 - Pruebas de seguridad",
+      "description": "Ejecutar en orden: sin login primero, luego login con cada rol.",
+      "item": [
+        {
+          "name": "401 - Productos sin autenticacion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos",
+            "description": "GET /api/productos sin cookie.\n\nBorrar cookies de Postman antes de ejecutar.\nEsperado: **401**"
+          },
+          "response": []
+        },
+        {
+          "name": "403 - CLIENTE accede usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios",
+            "description": "Login como cliente1 primero.\nEsperado: **403**"
+          },
+          "response": []
+        },
+        {
+          "name": "403 - CLIENTE accede inventario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/inventario",
+            "description": "Login como cliente1 primero.\nEsperado: **403**"
+          },
+          "response": []
+        },
+        {
+          "name": "403 - CLIENTE crea producto",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Hack\",\n  \"precio\": 1,\n  \"stock\": 1,\n  \"categoria\": { \"id\": 1 }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/productos",
+            "description": "Login como cliente1 primero.\nEsperado: **403**"
+          },
+          "response": []
+        },
+        {
+          "name": "403 - CLIENTE carrito de otro (IDOR)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/carrito/2",
+            "description": "Login como cliente1. Probar carritoId=2 (de otro usuario si existe).\nEsperado: **403** si no es su carrito."
+          },
+          "response": []
+        },
+        {
+          "name": "200 - EMPLEADO accede inventario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/inventario",
+            "description": "Login como empleado1 primero.\nEsperado: **200**"
+          },
+          "response": []
+        },
+        {
+          "name": "200 - GERENTE accede usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/usuarios",
+            "description": "Login como gerente1 primero.\nEsperado: **200** (sin campo password en JSON)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
